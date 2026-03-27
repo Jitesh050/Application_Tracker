@@ -81,6 +81,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -331,6 +332,31 @@ function AppContent() {
     document.body.removeChild(link);
   };
 
+  const handleSignIn = async () => {
+    setAuthError(null);
+    try {
+      await signIn();
+    } catch (error: any) {
+      const code = error?.code || 'unknown';
+      let message = 'Google sign-in failed. Please try again.';
+
+      if (code === 'auth/unauthorized-domain') {
+        message = 'This domain is not authorized in Firebase Auth. Add localhost and 127.0.0.1 in Firebase Console > Authentication > Settings > Authorized domains.';
+      } else if (code === 'auth/operation-not-allowed') {
+        message = 'Google provider is disabled. Enable it in Firebase Console > Authentication > Sign-in method > Google.';
+      } else if (code === 'auth/popup-closed-by-user') {
+        message = 'Sign-in popup was closed before completing login. Please try again.';
+      } else if (code === 'auth/network-request-failed') {
+        message = 'Network error during sign-in. Check your internet connection and try again.';
+      } else if (code !== 'unknown') {
+        message = `Google sign-in failed (${code}).`;
+      }
+
+      console.error('Google sign-in failed:', error);
+      setAuthError(message);
+    }
+  };
+
   if (!isAuthReady) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
@@ -345,12 +371,15 @@ function AppContent() {
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Job Tracker</h1>
           <p className="text-gray-600 mb-8">Sign in to sync your job applications across devices using Firebase.</p>
           <button 
-            onClick={signIn}
+            onClick={handleSignIn}
             className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
           >
             <LogIn size={20} />
             Sign in with Google
           </button>
+          {authError && (
+            <p className="mt-4 text-sm text-red-600 text-left">{authError}</p>
+          )}
         </div>
       </div>
     );
