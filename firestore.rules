@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{userId}/applications
+    // Document ID: auto-generated
+    // Fields:
+    //   - company: string (required, < 100 chars)
+    //   - role: string (required, < 100 chars)
+    //   - dateApplied: string (required, YYYY-MM-DD format)
+    //   - status: string (required, enum)
+    //   - notes: string (optional, < 5000 chars)
+    //
+    // Collection: users/{userId}/chats
+    // Document ID: auto-generated
+    // Fields:
+    //   - role: string (required, 'user' or 'model')
+    //   - text: string (required, < 5000 chars)
+    //   - timestamp: number (required, positive)
+    //   - imageUrl: string (optional, < 1000000 chars)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$");
+    }
+
+    function isValidStatus() {
+      let validStatuses = ['Applied', 'Pending', 'Interviewing', 'Selected', 'Rejected', 'Offer'];
+      return request.resource.data.status in validStatuses;
+    }
+
+    function isValidChatRole() {
+      return request.resource.data.role in ['user', 'model'];
+    }
+
+    function isValidJobApplication() {
+      return hasOnlyAllowedFields(['company', 'role', 'dateApplied', 'status', 'notes']) &&
+             hasRequiredFields(['company', 'role', 'dateApplied', 'status']) &&
+             validStringLength('company', 1, 100) &&
+             validStringLength('role', 1, 100) &&
+             isValidDateString(request.resource.data.dateApplied) &&
+             isValidStatus() &&
+             (!('notes' in request.resource.data) || validStringLength('notes', 0, 5000));
+    }
+
+    function isValidChatMessage() {
+      return hasOnlyAllowedFields(['role', 'text', 'timestamp', 'imageUrl']) &&
+             hasRequiredFields(['role', 'text', 'timestamp']) &&
+             isValidChatRole() &&
+             validStringLength('text', 1, 5000) &&
+             request.resource.data.timestamp is number &&
+             request.resource.data.timestamp > 0 &&
+             (!('imageUrl' in request.resource.data) || (request.resource.data.imageUrl is string && request.resource.data.imageUrl.size() <= 1000000));
+    }
+
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /applications/{applicationId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidJobApplication();
+        allow update: if isOwner(userId) && isValidJobApplication();
+        allow delete: if isOwner(userId);
+      }
+
+      match /chats/{chatId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidChatMessage();
+        allow update: if isOwner(userId) && isValidChatMessage();
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

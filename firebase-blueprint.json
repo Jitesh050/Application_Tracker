@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "JobApplication": {
+      "title": "JobApplication",
+      "description": "A job application tracked by the user",
+      "type": "object",
+      "properties": {
+        "company": { "type": "string", "description": "Company name" },
+        "role": { "type": "string", "description": "Job role" },
+        "dateApplied": { "type": "string", "description": "Date applied (YYYY-MM-DD)" },
+        "status": { 
+          "type": "string", 
+          "enum": ["Applied", "Pending", "Interviewing", "Selected", "Rejected", "Offer"] 
+        },
+        "notes": { "type": "string" }
+      },
+      "required": ["company", "role", "dateApplied", "status"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A chat message in the assistant history",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "text": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "imageUrl": { "type": "string", "description": "Optional base64 image URL" }
+      },
+      "required": ["role", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/applications/{applicationId}": {
+      "schema": { "$ref": "#/entities/JobApplication" },
+      "description": "User's job applications"
+    },
+    "/users/{userId}/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "User's chat history"
+    }
+  }
+}

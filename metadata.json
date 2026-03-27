@@ -1,0 +1,5 @@
+{
+  "name": "Job Application Tracker Agent",
+  "description": "An AI agent that tracks your job applications in an inbuilt spreadsheet.",
+  "requestFramePermissions": []
+}
